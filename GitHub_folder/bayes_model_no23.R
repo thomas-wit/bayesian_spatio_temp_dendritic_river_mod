@@ -1,3 +1,20 @@
+######################################################
+# How to get this code to work
+# email help: SSN support team (support@spatialstreamnetworks.com or Dumelle.Michael@epa.gov)
+######################################################
+## 1
+# Get rig and version 4.3.3 for R: 
+
+## 1.1 Open R version 4.3.3
+
+## 2
+# Install dev tools
+
+## 3 Make sure the ssn package folder is in the right place then run something like this
+# devtools::install_local("C:/Users/jlindsey/Documents/Grad WorkClasses/Research/SSN_1.1.17.tar.gz")
+
+## Should be able to run code but NOTE importSSN take about two tries to run, idk why
+
 
 ##########################################################################
 # Now... for what we've all been waiting for... RIVER DATAAAAA
@@ -6,66 +23,82 @@
 # library('devtools')
 # devtools::install_local("C:/Users/jlindsey/Documents/Grad WorkClasses/Research/SSN_1.1.17.tar.gz")
 # ^^^ How to install package from local file
-source("slicy_dicey.R")
-source("get_weights.R")
-source("functions.R")
-
+source("C:/Users/jlindsey/Documents/Grad WorkClasses/Research/official proj data/slicy_dicey.R")
+source("C:/Users/jlindsey/Documents/Grad WorkClasses/Research/official proj data/get_weights.R")
+source("C:/Users/jlindsey/Documents/Grad WorkClasses/Research/official proj data/functions.R")
+library("SSN")
 library('tidyverse')
+library(ggplot2)
 
-data <- read.csv('static_data.csv')
-# data <- data[-23,]
+mf04p <- importSSN("LSN_Megafire.ssn")
+data <- (mf04p@obspoints@SSNPoints[[1]]@point.data)[-23,]
+write.csv(mf04p@obspoints@SSNPoints[[1]]@point.data, "static_data.csv", row.names = FALSE)
+
+## This allows for points for prediction-never really use them in this study
+mf04p <- importPredpts(mf04p, "preds", "ssn")
+
+# Creates the outputs for the additive function
+mf04p <- additive.function(mf04p, "h2oLandKm2", "computed.afv")
 
 
+createDistMat(mf04p, predpts = "preds", o.write = TRUE,
+              amongpreds = TRUE)                                # This creates the distance matrices, I run again here because we got rid of a point
+createDistMat(mf04p, o.write = TRUE, amongpreds = FALSE)                                
+## so you can create weights for tail up(? down?) models
+# save(mf04p, file = "C:/Users/jlindsey/Documents/Grad WorkClasses/Research/official proj data/mf04p.RData")
+# load("mf04p.RData")
+# NOTE this is one way to extract the distances: However, in the function get_weights.R, there are parts I took from the SNN package that make this
+# 
 # # C:/Users/jlindsey/Documents/Grad WorkClasses/Research/official proj data/LSN_Megafire.ssn/LSN_Megafire.ssn/distance/obs/dist.net8.RData
 obs_dist_list <- list()
 dim_list <- list()
 ind <- 0
 for(i in 1:8){
-  file_path <- file.path('./dist_and_weight_mats/obs',
-                         paste("dist.net", i, ".RData", sep = ""))
-  
-  con <- file(file_path, open = "rb")  # open connection
-  obs_dist_list[[i]] <- unserialize(con)  # read from connection
-  close(con)  # close connection right after use ✅
-  
-  if(i == 5){
-    obs_dist_list[[i]] <- obs_dist_list[[i]][-12, -12]
+  file_handle <- file.path('C:/Users/jlindsey/Documents/Grad WorkClasses/Research/official proj data/LSN_Megafire.ssn/LSN_Megafire.ssn/distance/obs',
+                           paste("dist.net", i, ".RData", sep = ""))
+  obs_dist_list[[i]] <- unserialize(file(file_handle, open="rb"))
+  # close(file_handle)
+  if(i==5){
+    obs_dist_list[[i]] <- obs_dist_list[[i]][-12,-12]
   }
-  
-  # Store matrix placement info
-  dim_list[[i]] <- c(ind + 1, ind + ncol(obs_dist_list[[i]]))
+  # Here i am going to make a list of where in the large matrix these will be
+  dim_list[[i]] <- c(ind+1,ind + ncol(obs_dist_list[[i]]))
   ind <- dim_list[[i]][2]
 }
 
+####################################################
+########## Cleaning Data
+####################################################
+colnm <- colnames(mf04p@obspoints@SSNPoints[[1]]@point.data)
+mf04p@obspoints@SSNPoints[[1]]@point.coords
+mf04p@obspoints@SSNPoints[[1]]@point.data$site_id
+ssn_object <- mf04p
 
-####################################################
-########## Cleaning Data NOT REALLY THO
-####################################################
-# colnm <- colnames(mf04p@obspoints@SSNPoints[[1]]@point.data)
-# 
-# ssn_object <- mf04p
-# 
-# for (i in 9:86){
-#   mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])] <- as.numeric(mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])])
-# }
-# 
-# for(i in 4:5){
-#   mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])] <- as.factor(mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])])
-# }
-# data <- mf04p@obspoints@SSNPoints[[1]]@point.data
+for (i in 9:86){
+  mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])] <- as.numeric(mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])])
+}
+
+for(i in 4:5){
+  mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])] <- as.factor(mf04p@obspoints@SSNPoints[[1]]@point.data[,paste0(colnm[i])])
+}
+data_obs <- mf04p@obspoints@SSNPoints[[1]]@point.data
 
 ####################################################
 # Creating needed distance matrices and weights
 ####################################################
 
 #sort by netID then pid
-data_sort1 <- data[order(data$netID, data$pid),]
-summary(data_sort1)
+data_sort1 <- data_obs[order(data_obs$netID, data_obs$pid),]
+head(data_sort1,52)
 euc_dist_mat <- twodimdist(data_sort1[,6:7])
 euc_dist_mat <- euc_dist_mat[-23,-23]
 ###
 
-load('res.RData')
+
+## Though I call this weight_mat, it acually returns a variety of needed characteristics for the math to work
+
+res <- weight_mat(mf04p,'computed.afv','temp_C_YSI')
+
 ## this matrix is essential for the tail up model that uses these weights for its movigin average calculations
 
 ## These next matrixes are essential for computing tail-up and down covariance matrices. They come from the weight_mat function that 
@@ -86,7 +119,7 @@ coords <- data[,c(6,7)]
 weightrix <- weightrix[-23,-23]
 a_mat <- a_mat[-23,-23]
 b_mat <- b_mat[-23,-23]
-coords <- coords[-23,]
+coords <- coords
 
 
 ### now for tail up/down matrices
@@ -174,11 +207,10 @@ static_data$site
 # Make beta0s around 5, perhaps with higher altitude
 
 head(static_data)
-
-data <- data[-23,]
+rand_data <- data
 
 ## This is where we make the fake static covariates
-X_mat <- matrix(c(rep(1,nrow(data)), rbeta(nrow(data),2,5), rnorm(nrow(data),50,10),rbinom(nrow(data),1,.5)), ncol = 4)
+X_mat <- matrix(c(rep(1,nrow(rand_data)), rbeta(nrow(rand_data),2,5), rnorm(nrow(rand_data),50,10),rbinom(nrow(rand_data),1,.5)), ncol = 4)
 colnames(X_mat) <- c('interc', 'fake_perc_burn','fake_var', 'no_tree_cover')
 
 ## Making the "true" parameters to create the data with, to then recapture
@@ -208,7 +240,6 @@ V[1,1] <- 1000
 V_inv <- solve(V)
 sig2_time_true <- runif(nrow(X_mat),min=2,max=32)
 
-
 ## Creating true covariance matrixes to create fake beta coefficients
 cov_tu_calcd_B1 <- cov_tu(dim_list, flow_con_mat, ran_tu_true_B1, sig2_tu_true_B1, weightrix, tail_up_exponential)
 cov_td_calcd_B1 <- cov_td(tu_flow_con_dist, a_mat_uncon, b_mat_uncon, dim_list, ran_td_true_B1, sig2_td_true_B1, tail_down_exponential)
@@ -219,8 +250,8 @@ cov_td_calcd_B0 <- cov_td(tu_flow_con_dist, a_mat_uncon, b_mat_uncon, dim_list, 
 cov_eu_calcd_B0 <- cov_eu(euc_dist_mat, ran_eu_true_B0, sig2_eu_true_B0, Euclid_exponential)
 
 ## Our simulated (I should stop saying fake) beta coefficients
-B1 <- X_mat%*%thet_true_B1 + t(chol((cov_tu_calcd_B1 + cov_td_calcd_B1 + cov_eu_calcd_B1 + diag(sig2_true_B0,nrow=nrow(data)))))%*%rnorm(nrow(data),0,1)
-B0 <- X_mat%*%thet_true_B0 + t(chol((cov_tu_calcd_B0 + cov_td_calcd_B0 + cov_eu_calcd_B0 + diag(sig2_true_B1,nrow=nrow(data)))))%*%rnorm(nrow(data),0,1)
+B1 <- X_mat%*%thet_true_B1 + t(chol((cov_tu_calcd_B1 + cov_td_calcd_B1 + cov_eu_calcd_B1 + diag(sig2_true_B0,nrow=nrow(rand_data)))))%*%rnorm(nrow(rand_data),0,1)
+B0 <- X_mat%*%thet_true_B0 + t(chol((cov_tu_calcd_B0 + cov_td_calcd_B0 + cov_eu_calcd_B0 + diag(sig2_true_B1,nrow=nrow(rand_data)))))%*%rnorm(nrow(rand_data),0,1)
 
 ## Fake time data creation 
 T_sim_total <- seq(0.0,6,by=1/365)
@@ -292,14 +323,14 @@ current_state <- list(sig2_time = sig2_time, sig2_1= sig2_1, sig2_eu_1 = sig2_eu
 cov_tu_calcd_0 <- cov_tu(dim_list, flow_con_mat, current_state$ran_tu_0, current_state$sig2_tu_0, weightrix, tail_up_exponential)
 cov_td_calcd_0 <- cov_td(tu_flow_con_dist, a_mat_uncon, b_mat_uncon, dim_list, current_state$ran_td_0, current_state$sig2_td_0, tail_down_exponential)
 cov_eu_calcd_0 <- cov_eu(euc_dist_mat, current_state$ran_eu_0, current_state$sig2_eu_0, Euclid_exponential)
-cov_calcd_0 <- diag(current_state$sig2_0, nrow = nrow(data))
+cov_calcd_0 <- diag(current_state$sig2_0, nrow = nrow(rand_data))
 
 sig_mat_0 <- cov_td_calcd_0 + cov_tu_calcd_0 + cov_eu_calcd_0 + cov_calcd_0
 
 cov_tu_calcd_1 <- cov_tu(dim_list, flow_con_mat, current_state$ran_tu_1, current_state$sig2_tu_1, weightrix, tail_up_exponential)
 cov_td_calcd_1 <- cov_td(tu_flow_con_dist, a_mat_uncon, b_mat_uncon, dim_list, current_state$ran_td_1, current_state$sig2_td_1, tail_down_exponential)
 cov_eu_calcd_1 <- cov_eu(euc_dist_mat, current_state$ran_eu_1, current_state$sig2_eu_1, Euclid_exponential)
-cov_calcd_1 <- diag(current_state$sig2_1, nrow = nrow(data))
+cov_calcd_1 <- diag(current_state$sig2_1, nrow = nrow(rand_data))
 
 sig_mat_1 <- cov_td_calcd_1 + cov_tu_calcd_1 + cov_eu_calcd_1 + cov_calcd_1
 
@@ -310,8 +341,9 @@ library(mvtnorm)
 library(invgamma)
 site_ids <- unique(fake_data$site_id)
 
-n=400
+n=40000
 ## First, we need to create another function that samples the betas and sig2_time
+
 
 res_fake <- Sampler(n, y, T_mat,site_ids, X_mat, current_state,fake_data,c('e','u','d'),
                     # The hyperparameters
@@ -336,7 +368,7 @@ res_fake <- Sampler(n, y, T_mat,site_ids, X_mat, current_state,fake_data,c('e','
 # save(res_fake, file = "simulation_chain.RData")
 
 # Load the saved result correctly
-# load("simulation_chain.RData")
+load("simulation_chain.RData")
 beg <- 1000
 
 
@@ -361,6 +393,7 @@ sigs2_td_0 <- res_fake$sigs2_td_0[beg:n]
 sigs2_td_1 <- res_fake$sigs2_td_1[beg:n]
 sigs2_eu_0 <- res_fake$sigs2_eu_0[beg:n]
 sigs2_eu_1 <- res_fake$sigs2_eu_1[beg:n]
+
 
 ## Plot the Thetaaaas!! 
 # Lets take a look ourselves real quick
@@ -712,6 +745,7 @@ plot_correlation(X_mat)
 static_data_em <- static_data
 static_data_em[,c('ELEV','PRECIP')] <- em_static[,c('ELEV','PRECIP')]
 plot_correlation(static_data_em[,!colnames(static_data_em) %in% c('X','x','y')])
+colnames(static_data_em[,!colnames(static_data_em) %in% c('X','x','y')])
 plot(X_mat[,'lu_agri_pct'],X_mat[,'river_length'])
 plot((X_mat[,'lu_agri_pct']^(.1)),X_mat[,'river_length'])
 
@@ -770,7 +804,7 @@ ran_td_0 <- 1000
 ran_eu_0 <- 5
 thetas_0 <- rep(0,p)
 
-n <- 40
+n <- 40000
 # n <- 100
 
 current_state <- list(sig2_time = sig2_time, sig2_1= sig2_1, sig2_eu_1 = sig2_eu_1, sig2_tu_1 = sig2_tu_1, sig2_td_1 = sig2_td_1, ran_tu_1 = ran_tu_1, ran_td_1 = ran_td_1, ran_eu_1 = ran_eu_1, betas_1 = betas_1, thetas_1 = thetas_1,
@@ -983,7 +1017,7 @@ print(xtable(loo_table), type = "latex",label='lootable')
 # load("real_data_chainno23.RData")
 # load("UDsampsno23.RData")
 # load("Usampsno23.RData")
-# load("Dsampsno23.RData")
+load("Dsampsno23.RData")
 # load("Esampsno23.RData")
 # load("Ssampsno23.RData")
 
@@ -1162,7 +1196,7 @@ ggplot(data = df_to_plot_0, aes(x = meds, y = varname)) +
   geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2) + 
   geom_point(size = 3) +
   labs(
-    title = 'Static Variable Coefficients for Intercept',
+    # title = 'Static Variable Coefficients for Intercept',
     x = 'Value',
     y = 'Variable'
   ) +
@@ -1173,7 +1207,7 @@ ggplot(data = df_to_plot_1, aes(x = meds, y = varname)) +
   geom_errorbarh(aes(xmin = lwr, xmax = upr), height = 0.2) + 
   geom_point(size = 3) +
   labs(
-    title = 'Static Variable Coefficients for Slope',
+    # title = 'Static Variable Coefficients for Slope',
     x = 'Value',
     y = 'Variable'
   ) +
@@ -1206,18 +1240,27 @@ point_colors <- color_palette[binned_responses]
 # Extract coordinates of observation points
 point_coords <- mf04p@obspoints@SSNPoints[[1]]@point.data[, c("NEAR_X", "NEAR_Y")]
 
+png('vis_int.png')
+plot(point_coords$NEAR_X, point_coords$NEAR_Y, xlim = c(400000,505000),  # Ensure the full range of x is shown
+     ylim = y_limits+c(-16500,17500),
+     col = point_colors, pch = 19, cex = 1.8)
+
 # Plot the SSN object WITHOUT points
 plot(mf04p,
      lwdLineCol = "afvArea",
      lwdLineEx = 5,
      lineCol = "#468C8E",  # Adjusted blue-green for better aesthetics
      addWithLegend = FALSE,  # Manually adding the legend
-     xlab = "x-coordinate (m)", 
-     ylab = "y-coordinate (m)", 
+     xlab = "", 
+     ylab = "", 
      xlim = c(400000, 505000),  
      ylim = range(point_coords$NEAR_Y) + c(-16500, 17500),
-     main = 'Visual of log(DOC) Intercept by Location'
+     main = 'A',
+     axes = FALSE  # Remove axis numbers and ticks
+     
 )
+
+y_limits <- range(point_coords$NEAR_Y)
 
 # Overlay points with binned colors
 points(point_coords$NEAR_X, point_coords$NEAR_Y, xlim = c(400000,505000),  # Ensure the full range of x is shown
@@ -1230,7 +1273,7 @@ legend("topright",
        col = color_palette, 
        pch = 19, 
        title = "log(DOC)")
-
+dev.off()
 #################################################### 
 # Vis for SLOPE
 ####################################################
@@ -1258,16 +1301,22 @@ point_colors <- color_palette[binned_responses]
 point_coords <- mf04p@obspoints@SSNPoints[[1]]@point.data[, c("NEAR_X", "NEAR_Y")]
 
 # Plot the SSN object WITHOUT points
+png('vis_slp.png')
+plot(point_coords$NEAR_X, point_coords$NEAR_Y, xlim = c(400000,505000),  # Ensure the full range of x is shown
+       ylim = y_limits+c(-16500,17500),
+       col = point_colors, pch = 19, cex = 1.8)
+
 plot(mf04p,
      lwdLineCol = "afvArea",
      lwdLineEx = 5,
      lineCol = "#468C8E",  # Adjusted blue-green for better aesthetics
      addWithLegend = FALSE,  # Manually adding the legend
-     xlab = "x-coordinate (m)", 
-     ylab = "y-coordinate (m)", 
+     xlab = "", 
+     ylab = "", 
      xlim = c(400000, 505000),  
      ylim = range(point_coords$NEAR_Y) + c(-16500, 17500),
-     main = 'Visual of log(DOC) Slope by Location'
+     main = 'B',
+     axes = FALSE  # Remove axis numbers and ticks
 )
 
 # Overlay points with binned colors
@@ -1281,6 +1330,7 @@ legend("topright",
        col = color_palette, 
        pch = 19, 
        title = "log(DOC)")
+dev.off()
 
 ##################
 ## Graphs (make sure the right bets_0 and bets_1 is in global env)
@@ -1308,32 +1358,66 @@ static_site_info3 <- static_site_info3[match(mf04p@obspoints@SSNPoints[[1]]@poin
 static_site_info3$site_id
 # Overlay points with unique colors
 
+png("type_col.png")
+plot(point_coords$NEAR_X, point_coords$NEAR_Y, xlim=c(400000,505000),ylim=y_limits+c(-14500,16500),
+       col = ifelse(static_site_info3[, 'Type2'] == 'Natural_B', 'red',
+                    ifelse(static_site_info3[, 'Type2'] == 'Natural', 'black', 'grey')), pch = 19, cex = 1.8)
 
 plot(mf04p,
      lwdLineCol = "afvArea",
      lwdLineEx = 5,
      lineCol = "#4682B4",
      addWithLegend = FALSE,  # We will manually add the points
-     xlab = "x-coordinate (m)", 
-     ylab = "y-coordinate (m)", 
+     xlab = "", 
+     ylab = "", 
      xlim = c(400000,505000),  # Ensure the full range of x is shown
      ylim = y_limits+c(-14500,16500),
-     main = "Site Colored by Differing Lines From OLS"
+     # main = "Site Colored by Differing Lines From OLS"
+     axes = FALSE  # Remove axis numbers and ticks
+     
 )
 
 points(point_coords$NEAR_X, point_coords$NEAR_Y, xlim=c(400000,505000),ylim=y_limits+c(-14500,16500),
        col = ifelse(static_site_info3[, 'Type2'] == 'Natural_B', 'red',
-                    ifelse(static_site_info3[, 'Type2'] == 'Natural', 'black', 'grey')), pch = 19, cex = 1.5)
+                    ifelse(static_site_info3[, 'Type2'] == 'Natural', 'black', 'grey')), pch = 19, cex = 1.8)
 
 
 diffs <- c(1,10,13,21,27+1,45+1,46+1,47+1)
-points(point_coords$NEAR_X, point_coords$NEAR_Y, xlim=c(400000,505000),ylim=y_limits+c(-14500,16500),
-       col = ifelse(1:52 %in% diffs,'red','black'), pch = 19, cex = 1.5)
+# points(point_coords$NEAR_X, point_coords$NEAR_Y, xlim=c(400000,505000),ylim=y_limits+c(-14500,16500),
+       # col = ifelse(1:52 %in% diffs,'red','black'), pch = 19, cex = 1.8)
 
 legend("topright", 
        legend = unique(static_site_info3[,'Type2']), 
        col = c('black','red','grey'),
        pch = 19, title = "Land Type")
+dev.off()
+
+png("diff_ols.png")
+plot(point_coords$NEAR_X, point_coords$NEAR_Y, xlim=c(400000,505000),ylim=y_limits+c(-14500,16500),
+     col = ifelse(static_site_info3[, 'Type2'] == 'Natural_B', 'red',
+                  ifelse(static_site_info3[, 'Type2'] == 'Natural', 'black', 'grey')), pch = 19, cex = 1.8)
+
+plot(mf04p,
+     lwdLineCol = "afvArea",
+     lwdLineEx = 5,
+     lineCol = "#4682B4",
+     addWithLegend = FALSE,  # We will manually add the points
+     xlab = "", 
+     ylab = "", 
+     xlim = c(400000,505000),  # Ensure the full range of x is shown
+     ylim = y_limits+c(-14500,16500),
+     # main = "Site Colored by Differing Lines From OLS"
+     axes = FALSE  # Remove axis numbers and ticks
+     
+)
+
+
+
+diffs <- c(1,10,13,21,27+1,45+1,46+1,47+1)
+points(point_coords$NEAR_X, point_coords$NEAR_Y, xlim=c(400000,505000),ylim=y_limits+c(-14500,16500),
+col = ifelse(1:52 %in% diffs,'red','black'), pch = 19, cex = 1.8)
+
+dev.off()
 
 ## Visualizing which points differed from OLS
 for(i in c(1,10,13,21,27,45,46,47)){
@@ -1524,3 +1608,107 @@ res9 <- value(mcmc9_future)
 
 
 gelmanrubin_table(res7,res8,res9)
+
+###################################
+# Finally redoing the original burn figure
+###################################
+
+static_data_with23<-site_info[site_info$site_id %in% mf04p@obspoints@SSNPoints[[1]]@point.data$site_id,]
+# Extract response variable
+vals <- static_data_with23$burn_pct
+response_values <- c(vals)
+
+mf04p@obspoints@SSNPoints[[1]]@point.data$response <- response_values
+
+# Define number of bins (e.g., 7 for clarity)
+num_bins <- 6
+
+# Create bins based on response values
+bin_breaks <- quantile(response_values, probs = seq(0, 1, length.out = num_bins + 1), na.rm = TRUE)
+binned_responses <- cut(response_values, breaks = bin_breaks, include.lowest = TRUE, labels = FALSE)
+
+# Generate color palette
+color_palette <- colorRampPalette(c("#F5DEB3", "orange", "#8B0000"))(num_bins+1)
+color_palette <- c("#F5DEB3", "#F5DEB3", "#F5DEB3", "#FFA500", "#D86E00", "#B13700", "#8B0000")
+# color_palette[6:7] <- '#468C8E'
+# Assign colors based on bins
+point_colors <- color_palette
+
+# Extract coordinates of observation points
+point_coords <- mf04p@obspoints@SSNPoints[[1]]@point.data[, c("NEAR_X", "NEAR_Y")]
+
+# Plot the SSN object WITHOUT points
+
+png("Data visualization (2).png")
+plot(point_coords$NEAR_X, point_coords$NEAR_Y, xlim = c(400000,505000),  # Ensure the full range of x is shown
+       ylim = y_limits+c(-16500,17500),
+       col = point_colors, pch = 19, cex = 1.8)
+
+plot(mf04p,
+     lwdLineCol = "afvArea",
+     lwdLineEx = 5,
+     lineCol = "#468C8E",  # Adjusted blue-green for better aesthetics
+     addWithLegend = FALSE,  # Manually adding the legend
+     xlab = "", 
+     ylab = "", 
+     xlim = c(400000, 505000),  
+     ylim = range(point_coords$NEAR_Y) + c(-16500, 17500),
+     # main = 'Visual of Percent of Watershed Burned by Location'
+     axes = FALSE  # Remove axis numbers and ticks
+     
+)
+
+# Overlay points with binned colors
+points(point_coords$NEAR_X, point_coords$NEAR_Y, xlim = c(400000,505000),  # Ensure the full range of x is shown
+       ylim = y_limits+c(-16500,17500),
+       col = point_colors, pch = 19, cex = 1.8)
+
+# Add a legend
+legend_labels <- paste0(round(bin_breaks[-length(bin_breaks)], 2), "% - ", round(bin_breaks[-1], 2),'%')
+
+legend("topright", 
+       legend = legend_labels[3:6], 
+       col = color_palette[3:6], 
+       pch = 19, 
+       title = "Percent Area Burned")
+dev.off()
+##################
+
+### Plotting one with areas that have no burn 
+vals <- static_data_with23$burned
+response_values <- c(vals)
+
+# Plot the SSN object WITHOUT points
+
+png("burnednotburned.png")
+
+plot(point_coords$NEAR_X, point_coords$NEAR_Y, xlim = c(400000,505000),  # Ensure the full range of x is shown
+       ylim = y_limits+c(-16500,17500),
+       col = ifelse(vals,'dodgerblue','firebrick'), pch = 19, cex = 1.8)
+
+plot(mf04p,
+     lwdLineCol = "afvArea",
+     lwdLineEx = 5,
+     lineCol = "#468C8E",  # Adjusted blue-green for better aesthetics
+     addWithLegend = FALSE,  # Manually adding the legend
+     xlab = "",
+     ylab = "",
+     xlim = c(400000, 505000),  
+     ylim = range(point_coords$NEAR_Y) + c(-16500, 17500),
+     axes = FALSE  # Remove axis numbers and ticks
+)
+
+
+
+# Overlay points with binned colors
+points(point_coords$NEAR_X, point_coords$NEAR_Y, xlim = c(400000,505000),  # Ensure the full range of x is shown
+       ylim = y_limits+c(-16500,17500),
+       col = ifelse(vals,'dodgerblue','firebrick'), pch = 19, cex = 1.8)
+
+
+legend("topright", 
+       legend = c('Not Burned','Burned'), 
+       col = c('dodgerblue','firebrick'), 
+       pch = 19, 
+       title = "Watershed")
+dev.off()

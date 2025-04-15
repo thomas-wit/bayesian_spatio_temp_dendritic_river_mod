@@ -17,6 +17,10 @@ MCMCdiag <- function(chain){
   chain <- as.numeric(chain[-c(1,length(chain))])
   rd1 <- raftery.diag(chain)$resmatrix
   rd2 <- t(as.matrix(raftery.diag(chain)$params))
+  if(rd1[1]=='Error'){
+    print('You do not have sufficient sample size from you MCMC to calculate, sample more and try again')
+    stop()
+  }
   colnames(rd1) <- c('Burn in', 'Samples Desired', 'Samples Needed w/out Cor','Dependence Factor')
   colnames(rd2) <- c('Accuracy', 'Probability', 'Quantile')
   cbind(Param_name = param_name,Eff_Samp_Size = effectiveSize(chain),rd1,rd2)
@@ -441,7 +445,7 @@ HierSampler <- function(sig_mat, X_mat, y, current_state, m, V_inv, p, cov_to_ca
                                                                                               list(cov_td_calcd),
                                                                                               list(cov_eu_calcd)), movement_num = 10)
   
-  cov_calcd <- diag(current_state$sig2, nrow = nrow(rand_data))
+  cov_calcd <- diag(current_state$sig2, nrow = nrow(data))
   
   ####################################################################
   
@@ -596,7 +600,7 @@ Sampler <- function(n, y, T_mat,site_ids, X_mat, current_state,samp_data,cov_to_
     } else{
       cov_eu_calcd_0 = 0
     }
-    cov_calcd_0 <- diag(current_state$sig2_0, nrow = nrow(rand_data))
+    cov_calcd_0 <- diag(current_state$sig2_0, nrow = nrow(data))
     
     ## Make sure matrix only gives what we want
     
@@ -648,7 +652,7 @@ Sampler <- function(n, y, T_mat,site_ids, X_mat, current_state,samp_data,cov_to_
     } else{
       cov_eu_calcd_1 = 0
     }
-    cov_calcd_1 <- diag(current_state$sig2_1, nrow = nrow(rand_data))
+    cov_calcd_1 <- diag(current_state$sig2_1, nrow = nrow(data))
     
     ## Make sure matrix only gives what we want
     

@@ -12,7 +12,11 @@ source("functions.R")
 
 library('tidyverse')
 
+# Won't work without data
 data <- read.csv('static_data.csv')
+
+## IF YOU DON"T HAVE THE DATA: Just load this in
+coords <- read.csv('coords.csv')
 # data <- data[-23,]
 
 
@@ -21,7 +25,7 @@ obs_dist_list <- list()
 dim_list <- list()
 ind <- 0
 for(i in 1:8){
-  file_path <- file.path('./dist_and_weight_mats/obs',
+  file_path <- file.path('./dist_and_weights_mats/obs',
                          paste("dist.net", i, ".RData", sep = ""))
   
   con <- file(file_path, open = "rb")  # open connection
@@ -58,19 +62,15 @@ for(i in 1:8){
 # Creating needed distance matrices and weights
 ####################################################
 
-#sort by netID then pid
-data_sort1 <- data[order(data$netID, data$pid),]
-summary(data_sort1)
-euc_dist_mat <- twodimdist(data_sort1[,6:7])
-euc_dist_mat <- euc_dist_mat[-23,-23]
-###
-
+# This loads in a lot of the needed stuff for this to work
 load('res.RData')
-## this matrix is essential for the tail up model that uses these weights for its movigin average calculations
 
 ## These next matrixes are essential for computing tail-up and down covariance matrices. They come from the weight_mat function that 
 # compiles much of the code from the SSN package, but it still requires the SSN object. I save the matrices so you don't need the SSN package
 # to run this analysis-I'll save these as CSV files
+
+euc_dist_mat <- twodimdist(coords)
+euc_dist_mat <- euc_dist_mat[-23,-23]
 
 weightrix <- res$weight
 
@@ -80,7 +80,6 @@ net_inf[net_inf == 0] <- Inf
 net_inf <- net_inf-net_zero
 a_mat <- res$a.mat
 b_mat <- res$b.mat
-coords <- data[,c(6,7)]
 
 # the point taken out here only has 2 time points, so we take it out
 weightrix <- weightrix[-23,-23]
@@ -154,7 +153,7 @@ bet_sig2_time <- 5
 # It's in the functions.R file
 
 ####################################################
-# Doing the simulation study
+# Creating simulated data
 ####################################################
 
 set.seed(24)
@@ -178,6 +177,15 @@ head(static_data)
 data <- data[-23,]
 
 ## This is where we make the fake static covariates
+## This code uses 'data' a lot to get the dimensions necessary for creating some things: So use this 
+
+############################################################
+# to act as a substitute if you don't have data
+
+data <- data.frame(X1 = rep(NA,51),
+                   X2 = rep(NA,51))
+
+
 X_mat <- matrix(c(rep(1,nrow(data)), rbeta(nrow(data),2,5), rnorm(nrow(data),50,10),rbinom(nrow(data),1,.5)), ncol = 4)
 colnames(X_mat) <- c('interc', 'fake_perc_burn','fake_var', 'no_tree_cover')
 
@@ -230,6 +238,8 @@ T_sim_total <- seq(0.0,6,by=1/365)
 i=0
 fake_data <- data.frame(site_id = character(), time = numeric(), fake_DOC = numeric())
 
+#################### This chunk of code was to make sure each location of the fake data
+# Had the same amount of observations as the data used. If you don't have the data, use the next chunk
 for(site in data$site_id){
   
   n <- sum(!is.na(MegafirePointSamples[MegafirePointSamples$site_id == site,]$DOC_mg_L_SCAN))
@@ -242,11 +252,28 @@ for(site in data$site_id){
   fake_data <- rbind(fake_data,temp_df)
 }
 
+## For no reference data
+site_id <- 1:51
+
+for(site in site_id){
+  # This randomly creates the amount of observations a location gets, from 20-90 by 10
+  n <- sample(c(20,30,40,50,60,70,80,90),1)
+  
+  # This samples the corresponding time points
+  temp_df <- data.frame(site_id=site,time=sample(T_sim_total, n, replace=FALSE))
+  i = i+1
+  error <- rnorm(length(temp_df$time),0,sqrt(sig2_time_true[i]))
+  # error2 <- chol(diag(sig2_time_true[i],nrow=nrow(temp_df)))%*%rnorm(nrow(temp_df),0,1)
+  temp_df$fake_DOC <-  B0[i] + temp_df$time*B1[i] + error
+  # temp_df$site_ind <- rep(i,nrow(temp_df))
+  fake_data <- rbind(fake_data,temp_df)
+}
+
+
 
 ## Simulated time covariates
 T_mat <- cbind(rep(1,nrow(fake_data)),fake_data$time)
 y <- fake_data$fake_DOC
-hist(fake_data$fake_DOC)
 ## The data are made.
 ### Finally, time to sample this stuff
 ###########################################################################
@@ -310,7 +337,7 @@ library(mvtnorm)
 library(invgamma)
 site_ids <- unique(fake_data$site_id)
 
-n=400
+n=10000
 ## First, we need to create another function that samples the betas and sig2_time
 
 res_fake <- Sampler(n, y, T_mat,site_ids, X_mat, current_state,fake_data,c('e','u','d'),

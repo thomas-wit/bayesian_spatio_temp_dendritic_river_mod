@@ -18,9 +18,13 @@ The main folder to use and explore the model is
      This is the file that can be used without the SSN package. The data are not included as previously mentioned, but later down the code one can simulate data using the stream network used in the project. The rest of the files are supplementary to support this one and don't need to be directly opened-though the functions.R file has helpful comments about the functions used within this file. Requires R (Version >= 4.3.3)
 
 How to use without data: (For those just wanting to simulate river network data)
-* Start from the top of the code, and comment out the sections that require the code (Should be marked with a comment or include any sort of reference to data). Skip over any lines that run in data. 
-* Follow the comments and refer to functions.R for any unfamiliar functions used.
-* Refer to paper about any math used in the functions. 
+     * Start from the top of the code, and comment out the sections that require the code (Should be marked with a comment or include any sort of reference to data). Skip over any lines that run in data. 
+     * Follow the comments and refer to functions.R for any unfamiliar functions used.
+     * Refer to paper about any math used in the functions. 
+
+How to use with data
+     * Also start from the top, but if you want to create simulated data as similar to the data as I made it, comment out any sections that are made to simulate data without use of the real data
+     * Follow the other two points above
 
 - [`bayes_model_no23.R`](https://github.com/thomas-wit/bayesian_spatio_temp_dendritic_river_mod/blob/main/GitHub_folder/bayes_model_no23.R):
      This file is the original used for the analysis, it requires the SSN package-not usable without it. (Needs R version 4.3.3 or at minimum slightly older versions))

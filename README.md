@@ -31,7 +31,7 @@ How to use with data
 
 - [`functions.R`](https://github.com/thomas-wit/bayesian_spatio_temp_dendritic_river_mod/blob/main/GitHub_folder/functions.R): Contains helper functions used across the project.
 - [`get_weights.R`](https://github.com/thomas-wit/bayesian_spatio_temp_dendritic_river_mod/blob/main/GitHub_folder/get_weights.R): Script to calculate weights, distances, and other helpful matrices for the model.
-- [`slicy_dicey.R`](https://github.com/thomas-wit/bayesian_spatio_temp_dendritic_river_mod/blob/main/GitHub_folder/slicy_dicey.R): Code for the Slice Sampler Used.
+- [`slicy_dicey.R`](https://github.com/thomas-wit/bayesian_spatio_temp_dendritic_river_mod/blob/main/GitHub_folder/slicy_dicey.R): Code for the Slice Sampler Used. The results of this function for our stream network are stored in the res.RData object, so this is only necessary if working with the SSN package.
 
 ### Subdirectories
 

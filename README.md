@@ -1,9 +1,9 @@
 # Bayesian Spatio-Temporal Dendritic River Modeling
-This is the code for my master's project for the MS in Statistics at BYU. I tried to do well commenting everything, below I'll go into detail about what each file does.
+This is the code for my master's project for the MS in Statistics at BYU. I go into detail about what each important file does below.
 
 ## How to use
 
-Originally, this data was formatted for the old SSN package that was depricated around R-version 4.3.3. The needed wieghts and distances that the SSN package is usually needed to calculate are saved as R objects so as to not need to learn how to install the old package by finding the old package and figuring out how to get R to go back to the old version. The data that I used for the project is not included, as I don't hold the rights to it. However, there is code to create simulated data over the river network that was used to explore.
+Originally, this data was formatted for the old SSN package that was depricated around R-version 4.3.3. The needed tail-up wieghts and stream distances that the SSN package usually calculates are saved as R objects so as to not need to learn how to install the old package by finding the old package and figuring out how to get R to go back to the old version. The data that I used for the project is not included, as I don't hold the rights to it. However, there is code to create simulated data over the river network that was used to explore.
 
 The file structure as it now stands should be what you need to run everything. Note the subdirectories that contain weights needed for the tail-up correlation calculations.
 
